@@ -1,0 +1,402 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Simulador de lluvia sobre forjado</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: cabecera con cinta de obra, mandos arriba, sección del forjado en el centro, medidores y comparativa debajo */
+:root{
+  --bg:#EDEFEA; --panel:#F8F9F6; --fg:#1A1F23; --muted:#59626A; --line:#CCD1CB;
+  --yellow:#F2C200; --yellow-ink:#1B1600; --water:#1D7CC4; --ok:#2B8A55; --danger:#C0402C;
+  --sky:#DCE5E9; --soil:#8C7358; --pave:#A9ADA8; --wall:#C98471; --slab:#8E949A; --garage:#4B535A; --garage-ink:#D7DDE1;
+  --car:#2E353B; --tarp:#2A79BE; --bag:#EAE6DA; --crack:#1B1F22; --win:#B26B59;
+  --f-display:"Barlow Condensed","Arial Narrow",sans-serif;
+  --f-body:"Barlow",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#13171A; --panel:#1B2125; --fg:#E7EAEC; --muted:#9AA4AB; --line:#323B42;
+  --water:#4DA3E8; --ok:#4CBF82; --danger:#E5705D;
+  --sky:#1E2A32; --soil:#5F4C3B; --pave:#4A5055; --wall:#7B4B3F; --slab:#6B7178; --garage:#0F1417; --garage-ink:#AEB8BE;
+  --car:#252D33; --tarp:#3C93DD; --bag:#B9B5A8; --crack:#0B0D0F; --win:#5E382F; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#13171A; --panel:#1B2125; --fg:#E7EAEC; --muted:#9AA4AB; --line:#323B42;
+  --water:#4DA3E8; --ok:#4CBF82; --danger:#E5705D;
+  --sky:#1E2A32; --soil:#5F4C3B; --pave:#4A5055; --wall:#7B4B3F; --slab:#6B7178; --garage:#0F1417; --garage-ink:#AEB8BE;
+  --car:#252D33; --tarp:#3C93DD; --bag:#B9B5A8; --crack:#0B0D0F; --win:#5E382F; color-scheme:dark}
+
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.tape{height:10px;background:repeating-linear-gradient(-45deg,var(--yellow) 0 12px,#14181B 12px 24px)}
+.wrap{max-width:1080px;margin:0 auto;padding-inline:16px;padding-block:24px 48px;display:flex;flex-direction:column;gap:20px}
+header h1{font-family:var(--f-display);font-weight:700;font-size:clamp(30px,5vw,46px);line-height:1.05;margin:0;text-wrap:balance;letter-spacing:.01em}
+header p{margin:8px 0 0;color:var(--muted);max-width:68ch}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px;min-width:0}
+h2{font-family:var(--f-display);font-weight:600;font-size:22px;letter-spacing:.03em;text-transform:uppercase;margin:0 0 12px}
+
+.controls{display:flex;flex-direction:column;gap:16px}
+fieldset{border:0;margin:0;padding:0;min-width:0}
+legend{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:0;margin-bottom:8px;font-weight:600}
+.chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.chip{position:relative;display:block}
+.chip input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer}
+.chip span{display:block;border:1.5px solid var(--line);border-radius:6px;padding:10px 12px;background:var(--bg);height:100%}
+.chip b{display:block;font-weight:600}
+.chip small{display:block;color:var(--muted);font-size:13px;line-height:1.35;margin-top:2px}
+.chip input:checked + span{border-color:var(--yellow);background:color-mix(in srgb,var(--yellow) 18%,var(--panel));box-shadow:inset 4px 0 0 var(--yellow)}
+.chip input:focus-visible + span{outline:2px solid var(--fg);outline-offset:2px}
+.row2{display:flex;flex-wrap:wrap;gap:16px 28px;align-items:end}
+.slider{display:flex;flex-direction:column;gap:6px;flex:1 1 260px;min-width:0}
+.slider label{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.slider .v{font-family:var(--f-mono);font-size:15px;color:var(--fg);text-transform:none;letter-spacing:0}
+input[type=range]{width:100%;accent-color:var(--yellow)}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+button{font:600 14px var(--f-body);border:1.5px solid var(--line);background:var(--bg);color:var(--fg);padding:8px 14px;border-radius:6px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+button[aria-pressed=true]{background:var(--yellow);color:var(--yellow-ink);border-color:var(--yellow)}
+button.primary{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+
+.sceneHead{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 16px;align-items:center;margin-bottom:10px}
+.sceneHead h2{margin:0}
+.status{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:14px}
+.pill{font-weight:600;padding:3px 10px;border-radius:99px;background:color-mix(in srgb,var(--water) 20%,var(--panel));color:var(--fg);border:1px solid var(--water)}
+.pill.dry{background:var(--bg);border-color:var(--line);color:var(--muted)}
+.clock{font-family:var(--f-mono);color:var(--muted)}
+.scroll{overflow-x:auto;border-radius:4px;border:1px solid var(--line)}
+svg#scene{display:block;width:100%;min-width:760px;height:auto}
+svg text{font-family:var(--f-body)}
+.lab{font-size:13px;font-weight:600;fill:var(--muted);letter-spacing:.04em}
+.labG{font-size:13px;font-weight:600;fill:var(--garage-ink);letter-spacing:.04em}
+.flow{fill:none;stroke:var(--water);stroke-linecap:round;stroke-dasharray:5 9;animation:dash .7s linear infinite;transition:opacity .3s}
+.hose{fill:none;stroke:var(--fg);stroke-width:4;stroke-linejoin:round;opacity:.85}
+.hoseW{fill:none;stroke:var(--water);stroke-width:2;stroke-dasharray:4 8;animation:dash .5s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-14}}
+@media (prefers-reduced-motion:reduce){.flow,.hoseW{animation:none}}
+.note{font-size:13px;color:var(--muted);margin:8px 0 0}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px 14px;min-width:0}
+.stat .k{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.stat .n{font-family:var(--f-mono);font-size:28px;font-variant-numeric:tabular-nums;line-height:1.2;margin-top:2px}
+.stat .n small{font-size:14px;color:var(--muted);margin-left:4px}
+.stat.alert .n{color:var(--danger)}
+
+.read{margin:0 0 14px;max-width:70ch}
+.bars{display:flex;flex-direction:column;gap:8px}
+.br{display:grid;grid-template-columns:minmax(120px,210px) 1fr minmax(88px,auto);gap:12px;align-items:center}
+.br .l{font-size:14px;min-width:0}
+.br .t{height:18px;background:var(--bg);border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.br .t i{display:block;height:100%;background:var(--water);transition:width .3s}
+.br .v{font-family:var(--f-mono);font-size:14px;text-align:right;font-variant-numeric:tabular-nums}
+.br.me .l{font-weight:600}
+.br.me .t i{background:var(--yellow)}
+.br.me .t{border-color:var(--yellow)}
+@media (max-width:520px){.br{grid-template-columns:1fr auto}.br .t{grid-column:1/-1;order:3}}
+.assump{margin:0;padding-left:18px;color:var(--muted);font-size:14px;max-width:80ch}
+.assump li{margin-bottom:4px}
+</style>
+
+<div class="tape"></div>
+<div class="wrap">
+  <header>
+    <h1>Qué pasa con el agua sobre el forjado</h1>
+    <p>Corte transversal de la excavación: calle a la izquierda, forjado expuesto en el centro y parking debajo. Activa las medidas, ajusta la intensidad de lluvia y mira cuánta agua llega al garaje.</p>
+  </header>
+
+  <section class="panel controls" aria-label="Medidas y lluvia">
+    <fieldset>
+      <legend>Medidas de protección</legend>
+      <div class="chips">
+        <label class="chip"><input type="checkbox" id="tgBerm"><span><b>Muretes perimetrales</b><small>Sacos o mortero en el borde: la escorrentía de la calle va al sumidero.</small></span></label>
+        <label class="chip"><input type="checkbox" id="tgCanopy"><span><b>Cubierta provisional</b><small>Estructura ligera con lona inclinada sobre todo el forjado.</small></span></label>
+        <label class="chip"><input type="checkbox" id="tgSlope"><span><b>Pendientes y sumidero</b><small>Formación de pendiente hacia un pocillo de recogida.</small></span></label>
+        <label class="chip"><input type="checkbox" id="tgPump"><span><b>Bomba de achique</b><small>Bomba sumergible en el pocillo, con manguera hasta el sumidero de calle.</small></span></label>
+        <label class="chip"><input type="checkbox" id="tgSeal"><span><b>Sellado de fisuras</b><small>Inyección de poliuretano y mortero rápido en juntas y fisuras.</small></span></label>
+      </div>
+    </fieldset>
+    <div class="row2">
+      <div class="slider">
+        <label for="rain">Intensidad de lluvia <span class="v" id="rainV">45 mm/h</span></label>
+        <input type="range" id="rain" min="10" max="90" step="5" value="45">
+      </div>
+      <div class="btns" role="group" aria-label="Velocidad">
+        <button type="button" data-speed="3" aria-pressed="false">Lento</button>
+        <button type="button" data-speed="6" aria-pressed="true">Normal</button>
+        <button type="button" data-speed="12" aria-pressed="false">Rápido</button>
+      </div>
+      <div class="btns">
+        <button type="button" id="btnPlay" class="primary">Pausa</button>
+        <button type="button" id="btnReset">Reiniciar</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="Simulación">
+    <div class="sceneHead">
+      <h2>Corte de la excavación</h2>
+      <div class="status"><span class="pill" id="pill">Llueve</span><span class="clock" id="clock">0 min de 240</span></div>
+    </div>
+    <div class="scroll">
+    <svg id="scene" viewBox="0 0 960 440" role="img" aria-label="Corte esquemático: calle, excavación con forjado y parking debajo">
+      <defs><clipPath id="slabClip"><polygon id="clipPoly" points="0,0 1,0 1,1"/></clipPath></defs>
+      <rect width="960" height="440" fill="var(--sky)"/>
+      <!-- edificio -->
+      <rect x="760" y="0" width="200" height="440" fill="var(--wall)"/>
+      <g fill="var(--win)"><rect x="800" y="30" width="40" height="56"/><rect x="880" y="30" width="40" height="56"/><rect x="800" y="130" width="40" height="56"/><rect x="880" y="130" width="40" height="56"/></g>
+      <text class="labG" x="860" y="226" text-anchor="middle">EDIFICIO</text>
+      <!-- terreno y calle -->
+      <rect x="0" y="160" width="300" height="280" fill="var(--soil)"/>
+      <rect x="0" y="152" width="300" height="8" fill="var(--pave)"/>
+      <!-- parking -->
+      <rect x="304" y="296" width="456" height="144" fill="var(--garage)"/>
+      <rect x="296" y="296" width="8" height="144" fill="var(--slab)"/>
+      <rect x="304" y="420" width="456" height="20" fill="var(--slab)"/>
+      <rect x="370" y="394" width="92" height="26" rx="8" fill="var(--car)"/><rect x="390" y="382" width="52" height="16" rx="5" fill="var(--car)"/>
+      <rect x="580" y="394" width="92" height="26" rx="8" fill="var(--car)"/><rect x="600" y="382" width="52" height="16" rx="5" fill="var(--car)"/>
+      <rect id="parkWater" x="304" y="420" width="456" height="0" fill="var(--water)" opacity=".75"/>
+      <text class="labG" x="320" y="324">PARKING</text>
+      <text class="labG" id="parkLab" x="750" y="324" text-anchor="end"></text>
+      <!-- forjado -->
+      <polygon id="slabPoly" fill="var(--slab)" stroke="var(--crack)" stroke-width="1.5"/>
+      <polyline id="memb" fill="none" stroke="var(--crack)" stroke-width="4" opacity=".55"/>
+      <g id="cracks"></g>
+      <g id="seals"></g>
+      <g clip-path="url(#slabClip)"><rect id="slabWater" x="304" y="270" width="456" height="0" fill="var(--water)" opacity=".8"/></g>
+      <text class="labG" x="330" y="311" id="slabLab">FORJADO (techo del parking)</text>
+      <!-- sumidero y bomba -->
+      <g id="gSump" hidden><rect x="690" y="270" width="22" height="9" fill="var(--crack)"/><text class="lab" x="701" y="262" text-anchor="middle">sumidero</text></g>
+      <g id="gPump" hidden>
+        <path class="hose" d="M717 250 V120 H180 V150"/><path class="hoseW" d="M717 250 V120 H180 V150"/>
+        <rect x="706" y="248" width="22" height="18" rx="3" fill="var(--yellow)" stroke="var(--crack)" stroke-width="1.5"/>
+        <text class="lab" x="664" y="244" text-anchor="end">bomba</text>
+      </g>
+      <!-- sumidero de calle -->
+      <rect x="166" y="150" width="28" height="4" fill="var(--crack)"/>
+      <text class="lab" x="180" y="142" text-anchor="middle" id="labSum">sumidero de calle</text>
+      <text class="labG" x="20" y="186">CALLE</text>
+      <!-- escorrentía -->
+      <path id="runoff" class="flow" d="M10 149 H300"/>
+      <!-- muretes -->
+      <g id="gBerm" hidden>
+        <rect x="275" y="140" width="34" height="12" rx="5" fill="var(--bag)" stroke="var(--crack)" stroke-width="1.5"/>
+        <rect x="279" y="128" width="34" height="12" rx="5" fill="var(--bag)" stroke="var(--crack)" stroke-width="1.5"/>
+        <text class="lab" x="270" y="122" text-anchor="end">murete</text>
+      </g>
+      <!-- cubierta -->
+      <g id="gCanopy" hidden>
+        <line x1="316" y1="270" x2="316" y2="106" stroke="var(--crack)" stroke-width="4"/>
+        <line x1="538" y1="270" x2="538" y2="100" stroke="var(--crack)" stroke-width="3"/>
+        <line x1="745" y1="270" x2="745" y2="94" stroke="var(--crack)" stroke-width="4"/>
+        <polygon points="296,106 760,92 760,100 296,114" fill="var(--tarp)" stroke="var(--crack)" stroke-width="1.5"/>
+        <text class="lab" x="528" y="78" text-anchor="middle">cubierta provisional (pendiente hacia la calle)</text>
+      </g>
+      <!-- lluvia -->
+      <g id="rainG" stroke="var(--water)" stroke-width="1.4" stroke-linecap="round" opacity=".7"></g>
+      <g id="drips" fill="var(--water)"></g>
+      <text class="lab" x="528" y="205" text-anchor="middle" id="labExc">EXCAVACIÓN ABIERTA</text>
+    </svg>
+    </div>
+    <p class="note">Escala vertical exagerada para que se vea la lámina de agua. Modelo ilustrativo con parámetros supuestos.</p>
+  </section>
+
+  <section class="stats" aria-label="Medidores">
+    <div class="stat"><div class="k">Lluvia</div><div class="n" id="sRain">0<small>mm/h</small></div></div>
+    <div class="stat"><div class="k">Agua sobre el forjado</div><div class="n" id="sDepth">0.0<small>cm</small></div></div>
+    <div class="stat" id="stLeak"><div class="k">Filtración al parking</div><div class="n" id="sLeak">0<small>L/min</small></div></div>
+    <div class="stat" id="stPark"><div class="k">Acumulado en parking</div><div class="n" id="sPark">0<small>L</small></div></div>
+  </section>
+
+  <section class="panel" aria-label="Comparativa">
+    <h2>Litros que entran al parking en 4 horas</h2>
+    <p class="read" id="readout"></p>
+    <div class="bars" id="bars"></div>
+    <p class="note">Mismo episodio para todas las filas: 2 horas de lluvia a la intensidad elegida y 2 horas más hasta que el agua baja.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Hipótesis del modelo</h2>
+    <ul class="assump">
+      <li>Forjado de unos 250 m² y calle aportante de unos 180 m² con escorrentía del 85 %. El parking mide unos 300 m².</li>
+      <li>Sin medidas, los desagües existentes evacuan solo 30 L/min. Pendientes y sumidero añaden 200 L/min y la bomba 300 L/min.</li>
+      <li>Sin pendientes queda siempre una lámina residual en las depresiones del forjado, que sigue filtrando.</li>
+      <li>La filtración crece con el espesor de agua. El sellado la reduce cerca de un 90 %.</li>
+      <li>Es una ilustración para comparar medidas, no un cálculo de ingeniería. La dirección facultativa debe validar la solución real.</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+(function(){
+  var A_SLAB=250, A_STREET=180, A_PARK=300, RAIN_END=120, TOTAL=240;
+  var $=function(id){return document.getElementById(id)};
+  var flags={berm:false,canopy:false,slope:false,pump:false,seal:false};
+  var I=45, speed=6, running=true, T=0, acc=0;
+  var S={V:0,P:0,leak:0,inflow:0};
+  var CRACKX=[400,520,690];
+
+  function stepModel(s,f,I,m){
+    var rate=m<RAIN_END?I/60:0;
+    var direct=rate*A_SLAB*(f.canopy?0.03:1);
+    var street=rate*A_STREET*0.85*(f.berm?0.08:1);
+    s.inflow=direct+street; s.V+=s.inflow;
+    var cap=30+(f.slope?200:0)+(f.pump?300:0);
+    var resid=f.slope?100:1000;
+    var out=Math.max(0,Math.min(cap,s.V-resid)); s.V-=out;
+    var d=s.V/A_SLAB;
+    var leak=s.V>1?55*(0.25+9*d)*(f.seal?0.12:1)*(f.slope?0.6:1):0;
+    leak=Math.min(leak,s.V); s.V-=leak; s.P+=leak; s.leak=leak;
+    var vmax=A_SLAB*0.15; if(s.V>vmax) s.V=vmax;
+  }
+  function simulate(f,I){var s={V:0,P:0,leak:0,inflow:0};for(var m=0;m<TOTAL;m++)stepModel(s,f,I,m);return s.P}
+
+  function sy(x){return flags.slope?264+(Math.min(Math.max(x,312),700)-312)/388*12:270}
+  function roofY(x){return 106-(x-296)/464*14}
+  function yLow(){return flags.slope?276:270}
+  function hpx(){var d=S.V/A_SLAB; return Math.min(60,d/0.15*60)*(flags.slope?1.4:1)}
+  function yw(){return yLow()-hpx()}
+  function landY(x){
+    if(x<296) return (flags.berm&&x>=275)?128:152;
+    if(flags.canopy) return roofY(x);
+    var s=sy(x); return S.V>1?Math.min(s,yw()):s;
+  }
+
+  /* geometría */
+  function geometry(){
+    var pts=flags.slope?'304,264 700,276 760,276':'304,270 760,270';
+    $('slabPoly').setAttribute('points',pts+' 760,296 304,296');
+    $('memb').setAttribute('points',pts);
+    $('clipPoly').setAttribute('points','304,150 760,150 760,'+sy(760)+' '+(flags.slope?'700,276 ':'')+'304,'+sy(304));
+    var c='',s='';
+    CRACKX.forEach(function(x){
+      c+='<line x1="'+x+'" y1="'+sy(x)+'" x2="'+(x+2)+'" y2="296" stroke="var(--crack)" stroke-width="2.5"/>';
+      if(flags.seal) s+='<rect x="'+(x-14)+'" y="'+(sy(x)-5)+'" width="30" height="6" rx="2" fill="var(--ok)" stroke="var(--crack)" stroke-width="1"/>';
+    });
+    $('cracks').innerHTML=c; $('seals').innerHTML=s;
+    $('gSump').hidden=!flags.slope; $('gPump').hidden=!flags.pump;
+    $('gBerm').hidden=!flags.berm; $('gCanopy').hidden=!flags.canopy;
+    $('labExc').setAttribute('y',flags.canopy?150:205);
+    $('runoff').setAttribute('d',flags.berm?'M10 149 H180 V176':'M10 149 H300 L306 160 V'+Math.round(sy(306)));
+  }
+
+  /* lluvia */
+  var NS='http://www.w3.org/2000/svg', drops=[], MAXD=150;
+  for(var i=0;i<MAXD;i++){
+    var l=document.createElementNS(NS,'line'); $('rainG').appendChild(l);
+    drops.push({el:l,x:Math.random()*760,y:Math.random()*440-60,v:420+Math.random()*180});
+  }
+  var drips=CRACKX.map(function(x){
+    var c=document.createElementNS(NS,'circle'); c.setAttribute('r','2.6'); c.setAttribute('cx',x+2); $('drips').appendChild(c);
+    return {el:c,x:x+2,y:298,t:Math.random()*2,fall:false};
+  });
+
+  function frame(now){
+    var dt=Math.min(0.05,(now-(frame.last||now))/1000); frame.last=now;
+    if(running&&T<TOTAL){
+      acc+=dt*speed;
+      while(acc>=1&&T<TOTAL){stepModel(S,flags,I,T);T++;acc-=1;}
+    }
+    var raining=T<RAIN_END;
+    var n=raining?Math.round(I*1.6):0;
+    var runningRain=running&&T<TOTAL;
+    for(var i=0;i<MAXD;i++){
+      var d=drops[i];
+      if(i>=n){d.el.setAttribute('visibility','hidden');continue;}
+      if(runningRain){
+        d.y+=d.v*dt;
+        var ly=landY(d.x);
+        if(d.y>=ly){d.y=-20-Math.random()*60;d.x=Math.random()*760;}
+      }
+      d.el.setAttribute('visibility','visible');
+      d.el.setAttribute('x1',d.x); d.el.setAttribute('x2',d.x-2);
+      d.el.setAttribute('y1',d.y); d.el.setAttribute('y2',d.y+11);
+    }
+    /* agua sobre forjado */
+    var h=hpx();
+    var w=$('slabWater'); w.setAttribute('y',yw()); w.setAttribute('height',S.V>1?h+30:0);
+    /* parking */
+    var mm=S.P/A_PARK, ph=Math.min(118,mm*2.5);
+    $('parkWater').setAttribute('y',420-ph); $('parkWater').setAttribute('height',ph);
+    var pyTop=420-ph;
+    $('parkLab').textContent=mm>=0.5?'agua: '+mm.toFixed(0)+' mm':'';
+    /* goteo */
+    drips.forEach(function(g){
+      var active=S.leak>0.3&&running&&T<TOTAL;
+      if(!g.fall){
+        if(active){g.t-=dt; if(g.t<=0){g.fall=true;g.y=298;}}
+        g.el.setAttribute('visibility','hidden');
+      }else{
+        g.y+=150*dt;
+        if(g.y>=pyTop){g.fall=false;g.t=Math.max(0.1,2.2/(S.leak/8+0.4))*(0.6+Math.random()*0.8);g.el.setAttribute('visibility','hidden');}
+        else{g.el.setAttribute('visibility','visible');g.el.setAttribute('cy',g.y);}
+      }
+    });
+    /* escorrentía */
+    var ro=$('runoff');
+    if(!flags.berm) ro.setAttribute('d','M10 149 H300 L306 160 V'+Math.round(Math.min(sy(306),S.V>1?yw():999)));
+    ro.style.opacity=raining&&T<TOTAL?1:0;
+    ro.setAttribute('stroke-width',Math.max(1.5,3*I/45));
+    ro.style.animationPlayState=running?'running':'paused';
+    /* medidores */
+    $('sRain').innerHTML=(raining?I:0)+'<small>mm/h</small>';
+    $('sDepth').innerHTML=(S.V/A_SLAB*100).toFixed(1)+'<small>cm</small>';
+    $('sLeak').innerHTML=S.leak.toFixed(0)+'<small>L/min</small>';
+    $('sPark').innerHTML=Math.round(S.P).toLocaleString('es-ES')+'<small>L · '+mm.toFixed(0)+' mm</small>';
+    $('stLeak').classList.toggle('alert',S.leak>25);
+    $('stPark').classList.toggle('alert',S.P>3000);
+    var pill=$('pill');
+    if(T>=TOTAL){pill.textContent='Fin del episodio';pill.className='pill dry';}
+    else if(raining){pill.textContent='Llueve';pill.className='pill';}
+    else{pill.textContent='Ha dejado de llover';pill.className='pill dry';}
+    $('clock').textContent=Math.floor(T/60)+' h '+('0'+(T%60)).slice(-2)+' min de 4 h';
+    requestAnimationFrame(frame);
+  }
+
+  /* comparativa */
+  var SCEN=[
+    {l:'Sin medidas',f:{}},
+    {l:'Solo muretes',f:{berm:1}},
+    {l:'Solo cubierta provisional',f:{canopy:1}},
+    {l:'Pendientes + sumidero + bomba',f:{slope:1,pump:1}},
+    {l:'Solo sellado de fisuras',f:{seal:1}},
+    {l:'Muretes + cubierta',f:{berm:1,canopy:1}},
+    {l:'Todas las medidas',f:{berm:1,canopy:1,slope:1,pump:1,seal:1}}
+  ];
+  function fl(o){return{berm:!!o.berm,canopy:!!o.canopy,slope:!!o.slope,pump:!!o.pump,seal:!!o.seal}}
+  function fmt(n){return Math.round(n).toLocaleString('es-ES')+' L'}
+  function chart(){
+    var rows=SCEN.map(function(s){return{l:s.l,v:simulate(fl(s.f),I),me:false}});
+    var mine=simulate(flags,I);
+    rows.push({l:'Tu selección',v:mine,me:true});
+    var base=rows[0].v, max=Math.max.apply(null,rows.map(function(r){return r.v}))||1;
+    $('bars').innerHTML=rows.map(function(r){
+      return '<div class="br'+(r.me?' me':'')+'"><span class="l">'+r.l+'</span><div class="t"><i style="width:'+(r.v/max*100).toFixed(1)+'%"></i></div><span class="v">'+fmt(r.v)+'</span></div>';
+    }).join('');
+    var red=base>0?Math.round((1-mine/base)*100):0;
+    var any=flags.berm||flags.canopy||flags.slope||flags.pump||flags.seal;
+    $('readout').textContent=any
+      ? 'Con tu selección entran unos '+fmt(mine)+' al parking en lugar de '+fmt(base)+' sin medidas, un '+red+' % menos.'
+      : 'Sin ninguna medida y con '+I+' mm/h entrarían unos '+fmt(base)+' al parking. Activa medidas arriba para compararlas.';
+  }
+
+  /* mandos */
+  var map={tgBerm:'berm',tgCanopy:'canopy',tgSlope:'slope',tgPump:'pump',tgSeal:'seal'};
+  Object.keys(map).forEach(function(id){
+    $(id).addEventListener('change',function(e){flags[map[id]]=e.target.checked;geometry();chart();});
+  });
+  function reset(){S={V:0,P:0,leak:0,inflow:0};T=0;acc=0;running=true;$('btnPlay').textContent='Pausa';drips.forEach(function(g){g.y=298;g.fall=false;g.t=Math.random()*2});geometry();}
+  $('rain').addEventListener('input',function(e){I=+e.target.value;$('rainV').textContent=I+' mm/h';reset();chart();});
+  $('btnReset').addEventListener('click',reset);
+  $('btnPlay').addEventListener('click',function(){
+    if(T>=TOTAL){reset();return;}
+    running=!running;this.textContent=running?'Pausa':'Continuar';
+  });
+  document.querySelectorAll('[data-speed]').forEach(function(b){
+    b.addEventListener('click',function(){
+      speed=+b.dataset.speed;
+      document.querySelectorAll('[data-speed]').forEach(function(o){o.setAttribute('aria-pressed',o===b?'true':'false')});
+    });
+  });
+
+  geometry(); chart(); requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>
